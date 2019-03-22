@@ -1,14 +1,10 @@
-package convert
+package convertor
 
 import (
 	"encoding/binary"
 	"strconv"
 	"strings"
 )
-
-func FormatInt(id int64) string {
-	return strconv.FormatInt(id, 10)
-}
 
 func ConvertInt(n interface{}) int {
 	var result int

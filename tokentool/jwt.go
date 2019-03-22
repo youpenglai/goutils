@@ -1,4 +1,4 @@
-package token
+package tokentool
 
 import (
 	"errors"
@@ -16,18 +16,21 @@ type jwtPub struct {
 	rsaPubKey string
 }
 
+// 私钥Key, 用来创建Token
 func NewJwtPri(rsaPriKey string) *jwtPri {
 	return &jwtPri{
 		rsaPriKey: rsaPriKey,
 	}
 }
 
+// 公钥Key, 用来验证Token
 func NewJwtPub(rsaPubKey string) *jwtPub {
 	return &jwtPub{
 		rsaPubKey: rsaPubKey,
 	}
 }
 
+// 创建Token
 func (this *jwtPri) CreateToken(uuid string, expire time.Duration) (tokenString string, err error) {
 	parsedKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(this.rsaPriKey))
 	if err != nil {
@@ -44,6 +47,7 @@ func (this *jwtPri) CreateToken(uuid string, expire time.Duration) (tokenString 
 	return jwt.NewWithClaims(jwt.SigningMethodRS512, claims).SignedString(parsedKey)
 }
 
+// 验证Token
 func (this *jwtPub) VerifyToken(tokenString string) (id string, err error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {

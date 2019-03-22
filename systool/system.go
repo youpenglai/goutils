@@ -1,4 +1,4 @@
-package goutils
+package systool
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// 获取IP/MAC
+// 获取IP列表/MAC列表
 func GetIpMac() (ipList []string, macList []string, err error) {
 	interfaces, err := net.Interfaces()
 	if err != nil {

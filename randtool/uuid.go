@@ -1,10 +1,11 @@
-package goutils
+package randtool
 
 import (
 	"sync/atomic"
 	"time"
 )
 
+// 获取随机Uuid
 func Uuid() string {
 	return fromTime(time.Now()).String()
 }

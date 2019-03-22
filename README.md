@@ -7,20 +7,20 @@ Download and install
     go get -u github.com/youpenglai/goutils
 
 
-directory explain
+Directory explain
 -------------
 - 一个类别一个文件夹,文件夹里必含一个测试文件
 - 可以使用go test -v测试
 
 
-utils directorys
+Utils directorys
 -------------
 
 | 功能 | 包名 |  备注 |
 | :--- | :--- | :--- |
-| 类型转换 | [convert](convert/) | 操作数字等 |
-| 加密解密 | [crypto](crypto/) | base64、md5... |
-| HTTP调用 | [httpreq](httpreq/http.go) | http调用方式 |
-| token | [token](token/jwt.go) | 安全认证 |
-| uuid | [uuid](uuid.go) |  获取随机uuid |
-| system | [system](system.go) | 获取信息信息 |
+| 类型转换 | [convert](convertor/) | 操作数字等 |
+| 加密解密 | [crypto](cryptotool/) | base64、md5... |
+| HTTP调用 | [httpreq](httptool/http.go) | http调用方式 |
+| 随机数据 | [randtool](randtool/) | 获取随机uuid |
+| 系统信息 | [system](systool/system.go) | 获取系统信息 |
+| token | [token](tokentool/jwt.go) | 安全认证 |
