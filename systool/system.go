@@ -1,11 +1,10 @@
 package systool
 
 import (
-	"bytes"
+	"github.com/youpenglai/goutils/cmdtool"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os/exec"
 	"sort"
 	"strings"
 )
@@ -59,16 +58,11 @@ func GetExternalIP() (ip string, err error) {
 // 获取主板序列号和UUID(需要root权限才能获取到)
 func GetMIDAndUUID() (mid string, uuid string, err error) {
 	execCmd := `dmidecode |grep -A 10 "System Information" | grep "Serial Number\|UUID"`
-	cmd := exec.Command("/bin/bash", "-c", execCmd)
-	var out bytes.Buffer
-
-	cmd.Stdout = &out
-	err = cmd.Run()
+	outStr, err := cmdtool.Cmd(execCmd)
 	if err != nil {
 		return
 	}
 
-	outStr := out.String()
 	getSubField := func(str string) string {
 		if n := strings.Index(outStr, str); n >= 0 {
 			n += len(str)
