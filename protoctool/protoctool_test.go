@@ -6,14 +6,11 @@ import (
 
 func Test_protoc(t *testing.T) {
 
-	if err := Protoc("/home/embiid/go/src/github.com/youpenglai/goutils/pathtool",
-		"/home/embiid/go/src/github.com/youpenglai/goutils/pathtool"); err != nil {
+	if err := Protoc("helloworld/"); err != nil {
 		t.Fatal(err.Error())
 	}
-	/*
-		if err := ProtocGRPC("/home/embiid/go/src/github.com/youpenglai/goutils/pathtool",
-			"/home/embiid/go/src/github.com/youpenglai/goutils/pathtool"); err != nil {
-			t.Fatal(err.Error())
-		}
-	*/
+
+	if err := ProtocGRPC("helloworld/"); err != nil {
+		t.Fatal(err.Error())
+	}
 }
