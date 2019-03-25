@@ -33,12 +33,25 @@ func FileExists(path string) (bool, error) {
 	return true, nil
 }
 
+// 获取文件夹下所有文件夹(递归)
+func GetDirs(dirPath string) (pathList []string, err error) {
+	err = filepath.Walk(dirPath,
+		func(path string, f os.FileInfo, err error) error {
+			if f.IsDir() {
+				pathList = append(pathList, path)
+			}
+			return nil
+		},
+	)
+	return
+}
+
 // 获取文件夹下所有文件（递归、无文件夹）
-func GetDirFiles(dirPath string) (dirList []string, err error) {
+func GetFiles(dirPath string) (pathList []string, err error) {
 	err = filepath.Walk(dirPath,
 		func(path string, f os.FileInfo, err error) error {
 			if !f.IsDir() {
-				dirList = append(dirList, path)
+				pathList = append(pathList, path)
 			}
 			return nil
 		},
@@ -47,7 +60,7 @@ func GetDirFiles(dirPath string) (dirList []string, err error) {
 }
 
 // 获取文件夹下符合后缀名的所有文件（递归、无文件夹）
-func GetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, err error) {
+func GetFilesForSuffixs(dirPath string, suffixs []string) (pathList []string, err error) {
 	err = filepath.Walk(dirPath,
 		func(path string, f os.FileInfo, err error) error {
 			var flag = false
@@ -56,7 +69,7 @@ func GetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, 
 			}
 
 			if !f.IsDir() && (flag) {
-				dirList = append(dirList, path)
+				pathList = append(pathList, path)
 			}
 
 			return nil
@@ -67,7 +80,7 @@ func GetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, 
 
 /*
 // 获取文件夹下所有文件（递归、无文件夹）
-func GetDirFiles(dirPath string) (dirList []string, err error) {
+func GetFiles(dirPath string) (dirList []string, err error) {
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
 		return
@@ -92,7 +105,7 @@ func GetDirFiles(dirPath string) (dirList []string, err error) {
 
 /*
 // 获取文件夹下符合后缀名的所有文件（递归、无文件夹）
-func WalkGetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, err error) {
+func GetFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, err error) {
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
 		return
