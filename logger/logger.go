@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,16 +18,33 @@ const (
 	LoggerConsole = "console"
 	LoggerFile    = "file"
 
-	LogRotateNo = 0
+	LogRotateNo    = 0
 	LogRotateLines = 1
-	LogRotateDay = 2
-	LogRotateHour = 3
+	LogRotateDay   = 2
+	LogRotateHour  = 3
 )
 
 var (
 	levelPrefix []string = []string{"[ABORT]", "[ERROR]", "[WARN]", "[INFO]", "[DEBUG]"}
 	levelNames  []string = []string{"error", "info"}
 )
+
+func getLevelByName(name string) int {
+	switch strings.ToLower(name) {
+	case "abort":
+		return LevelAbort
+	case "error":
+		return LevelError
+	case "warn", "warning":
+		return LevelWarn
+	case "info", "information":
+		return LevelInfo
+	case "debug", "dbg":
+		return LevelDebug
+	default:
+		return LevelDebug
+	}
+}
 
 type LoggerWriter interface {
 	Colorful() bool
@@ -35,54 +53,49 @@ type LoggerWriter interface {
 }
 
 type LoggerOpts struct {
-	Type string
-	Prefix string
-	Level  int
-	Rotate int
-	MaxLines int
+	Type     string `json:"type"`
+	FileName string `json:"fileName"`
+	Rotate   int    `json:"rotate,omitempty"`
+	MaxLines int    `json:"maxLines,omitempty"`
+	MaxSize  int64  `json:"maxSize,omitempty"`
 }
 
-var loggerWriters map[string]LoggerWriter
+var loggerWriters map[string]LoggerWriterCreateFunc
+
+type LoggerWriterCreateFunc func(opts LoggerOpts) LoggerWriter
+
+func RegisterLoggerWriter(name string, loggerCreateFunc LoggerWriterCreateFunc) {
+	loggerWriters[name] = loggerCreateFunc
+}
+
+func getLoggerWriterCreateFunc(name string) LoggerWriterCreateFunc{
+	w, e := loggerWriters[name]
+	if e {
+		return w
+	}
+	name = LoggerConsole
+	w, _ = loggerWriters[name]
+	return w
+}
 
 type Logger struct {
-	name   string
 	async  bool
 	level  int
 	prefix string
 
 	buff    chan *LoggerMsg
-	writers []LoggerWriter
-	mu      sync.Mutex
 }
 
-func NewLogger(opts LoggerOpts) *Logger {
-	logger := &Logger{}
+const defaultBuffSize = 100
 
-	// start write job
-	go func() {
-		for {
-			select {
-			case msg := <-logger.buff:
-				logger.mu.Lock()
-				defer logger.mu.Unlock()
-				logger.writeTask(msg)
-			}
-		}
-	}()
+func NewLogger(prefix, level string, async bool) *Logger {
+	logger := &Logger{
+		async:  async,
+		level:  getLevelByName(level),
+		prefix: prefix,
+	}
 
 	return logger
-}
-
-func (l *Logger) writeTask(msg *LoggerMsg) {
-	var m string
-	var colorful bool
-	for _, writer := range l.writers {
-		if m == "" || colorful != writer.Colorful() {
-			colorful = writer.Colorful()
-			m = msg.Format(writer.Colorful())
-		}
-		writer.Write([]byte(m))
-	}
 }
 
 var msgPool *sync.Pool
@@ -100,6 +113,10 @@ func (l *Logger) allocMsg() *LoggerMsg {
 
 func (l *Logger) freeMsg(msg *LoggerMsg) {
 	msgPool.Put(msg)
+}
+
+func (l *Logger) SetLevel(level int) {
+	l.level = level
 }
 
 func (l *Logger) Debug(f string, v ...interface{}) {
@@ -150,9 +167,52 @@ func (l *Logger) writeMsg(f string, v ...interface{}) {
 	msg.Caller.FileName = file
 	msg.Caller.Line = line
 
-	l.buff <- msg
-	if !l.async {
-		// flush
+	writeLogMsg(msg, l.async)
+}
+
+
+var loggers = struct {
+	mu            sync.Mutex
+	level         string
+	loggers       map[string]*Logger
+	defaultLogger *Logger
+	writers       []LoggerWriter
+	buffers       chan *LoggerMsg
+	flush         chan int
+}{}
+
+func writeLogMsg(msg *LoggerMsg, async bool) {
+	if loggers.buffers == nil {
+		return
+	}
+
+	loggers.buffers <- msg
+	if async {
+		loggers.flush <- 1
+	}
+}
+
+func writeTasks() {
+	flush := false
+	flushTicker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <- flushTicker.C:
+			for _, writer := range loggers.writers {
+				writer.Flush()
+			}
+		case <- loggers.flush:
+			flush = true
+			continue
+		case msg := <- loggers.buffers:
+			for _, writer := range loggers.writers {
+				writer.Write([]byte(msg.Format(writer.Colorful())))
+				if flush && len(loggers.buffers) == 0 {
+					writer.Flush()
+					flush = false
+				}
+			}
+		}
 	}
 }
 
@@ -163,12 +223,43 @@ func init() {
 			return &LoggerMsg{}
 		},
 	}
+
+	go writeTasks()
 }
 
-func InitLogger() error {
+func InitLogger(level string, opts ...LoggerOpts) error {
+	loggers.mu.Lock()
+	defer loggers.mu.Unlock()
+
+	loggers.buffers = make(chan *LoggerMsg, defaultBuffSize)
+	loggers.flush = make(chan int)
+
+	loggers.level = level
+	if len(opts) == 0 {
+		opts = append(opts, LoggerOpts{Type:LoggerConsole})
+	}
+	for _, opt := range opts {
+		createFunc := getLoggerWriterCreateFunc(opt.Type)
+		writer := createFunc(opt)
+		loggers.writers = append(loggers.writers, writer)
+	}
+
 	return nil
 }
 
 func GetLogger(prefix string) *Logger {
-	return &Logger{}
+	loggers.mu.Lock()
+	defer loggers.mu.Unlock()
+
+	if prefix == "" {
+		return loggers.defaultLogger
+	}
+
+	logger, exist := loggers.loggers[prefix]
+	if !exist {
+		logger = NewLogger(prefix, loggers.level, true)
+		loggers.loggers[prefix] = logger
+	}
+
+	return logger
 }

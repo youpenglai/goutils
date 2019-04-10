@@ -25,7 +25,7 @@ type ConsoleWriter struct {
 	writer *os.File
 }
 
-func NewConsoleWriter() *ConsoleWriter {
+func NewConsoleWriter(opts LoggerOpts) LoggerWriter {
 	return &ConsoleWriter{
 		writer: os.Stdout,
 	}
@@ -41,4 +41,8 @@ func (cw *ConsoleWriter) Write(b []byte) (int, error) {
 
 func (cw *ConsoleWriter) Flush() {
 	cw.writer.Sync()
+}
+
+func init() {
+	RegisterLoggerWriter(LoggerConsole, NewConsoleWriter)
 }

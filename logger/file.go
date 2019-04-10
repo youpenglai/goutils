@@ -34,3 +34,11 @@ func (fw *FileWriter) Flush() {
 	defer fw.mu.Unlock()
 	fw.file.Sync()
 }
+
+func NewFileWriter(opts LoggerOpts) LoggerWriter {
+	return nil
+}
+
+func init() {
+	RegisterLoggerWriter(LoggerFile, NewFileWriter)
+}
