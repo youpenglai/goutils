@@ -21,8 +21,7 @@ func TestTextFormatter_Format(t *testing.T) {
 		Msg: "Debug message here",
 	}
 
-	formatter := NewTextFormatter(true)
-	t.Log(formatter.Format(&msg))
+	t.Log(msg.Format(true))
 
 	t.Log("success")
 }

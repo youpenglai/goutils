@@ -60,7 +60,7 @@ type LoggerOpts struct {
 	MaxSize  int64  `json:"maxSize,omitempty"`
 }
 
-var loggerWriters map[string]LoggerWriterCreateFunc
+var loggerWriters = make(map[string]LoggerWriterCreateFunc)
 
 type LoggerWriterCreateFunc func(opts LoggerOpts) LoggerWriter
 
@@ -123,35 +123,35 @@ func (l *Logger) Debug(f string, v ...interface{}) {
 	if LevelDebug > l.level {
 		return
 	}
-	l.writeMsg(f, v)
+	l.writeMsg(f, v...)
 }
 
 func (l *Logger) Info(f string, v ...interface{}) {
 	if LevelInfo > l.level {
 		return
 	}
-	l.writeMsg(f, v)
+	l.writeMsg(f, v...)
 }
 
 func (l *Logger) Warn(f string, v ...interface{}) {
 	if LevelWarn > l.level {
 		return
 	}
-	l.writeMsg(f, v)
+	l.writeMsg(f, v...)
 }
 
 func (l *Logger) Error(f string, v ...interface{}) {
 	if LevelError > l.level {
 		return
 	}
-	l.writeMsg(f, v)
+	l.writeMsg(f, v...)
 }
 
 func (l *Logger) Abort(f string, v ...interface{}) {
 	if LevelAbort > l.level {
 		return
 	}
-	l.writeMsg(f, v)
+	l.writeMsg(f, v...)
 }
 
 func (l *Logger) writeMsg(f string, v ...interface{}) {
@@ -187,7 +187,7 @@ func writeLogMsg(msg *LoggerMsg, async bool) {
 	}
 
 	loggers.buffers <- msg
-	if async {
+	if !async {
 		loggers.flush <- 1
 	}
 }
@@ -231,6 +231,7 @@ func InitLogger(level string, opts ...LoggerOpts) error {
 	loggers.mu.Lock()
 	defer loggers.mu.Unlock()
 
+	loggers.loggers = make(map[string]*Logger)
 	loggers.buffers = make(chan *LoggerMsg, defaultBuffSize)
 	loggers.flush = make(chan int)
 
@@ -247,19 +248,43 @@ func InitLogger(level string, opts ...LoggerOpts) error {
 	return nil
 }
 
-func GetLogger(prefix string) *Logger {
+func GetLogger(prefix... string) *Logger {
 	loggers.mu.Lock()
 	defer loggers.mu.Unlock()
 
-	if prefix == "" {
+	if len(prefix) == 0 {
 		return loggers.defaultLogger
 	}
 
-	logger, exist := loggers.loggers[prefix]
+	logger, exist := loggers.loggers[prefix[0]]
 	if !exist {
-		logger = NewLogger(prefix, loggers.level, true)
-		loggers.loggers[prefix] = logger
+		logger = NewLogger(prefix[0], loggers.level, true)
+		loggers.loggers[prefix[0]] = logger
 	}
 
 	return logger
+}
+
+func SetLevel(level int) {
+	loggers.defaultLogger.SetLevel(level)
+}
+
+func Debug(f string, v ...interface{}) {
+	loggers.defaultLogger.Debug(f, v...)
+}
+
+func Info(f string, v ...interface{}) {
+	loggers.defaultLogger.Info(f, v...)
+}
+
+func Warn(f string, v ...interface{}) {
+	loggers.defaultLogger.Warn(f, v...)
+}
+
+func Error(f string, v ...interface{}) {
+	loggers.defaultLogger.Error(f, v...)
+}
+
+func Abort(f string, v ...interface{}) {
+	loggers.defaultLogger.Abort(f, v...)
 }
