@@ -20,7 +20,7 @@ const (
 
 	LogRotateNo    = 0
 	LogRotateLines = 1
-	LogRotateDay   = 2
+	LogRotateDaily = 2
 	LogRotateHour  = 3
 )
 
