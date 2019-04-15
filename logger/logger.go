@@ -47,17 +47,19 @@ func getLevelByName(name string) int {
 }
 
 type LoggerWriter interface {
+	MatchPrefix(prefix string) bool
 	Colorful() bool
 	Write([]byte) (int, error)
 	Flush()
 }
 
 type LoggerOpts struct {
-	Type     string `json:"type"`
-	FileName string `json:"fileName"`
-	Rotate   int    `json:"rotate,omitempty"`
-	MaxLines int    `json:"maxLines,omitempty"`
-	MaxSize  int64  `json:"maxSize,omitempty"`
+	Type     string   `json:"type"`
+	Prefixs  []string `json:"prefix"`
+	FileName string   `json:"fileName"`
+	Rotate   int      `json:"rotate,omitempty"`
+	MaxLines int      `json:"maxLines,omitempty"`
+	MaxSize  int64    `json:"maxSize,omitempty"`
 }
 
 var loggerWriters = make(map[string]LoggerWriterCreateFunc)
@@ -68,7 +70,7 @@ func RegisterLoggerWriter(name string, loggerCreateFunc LoggerWriterCreateFunc) 
 	loggerWriters[name] = loggerCreateFunc
 }
 
-func getLoggerWriterCreateFunc(name string) LoggerWriterCreateFunc{
+func getLoggerWriterCreateFunc(name string) LoggerWriterCreateFunc {
 	w, e := loggerWriters[name]
 	if e {
 		return w
@@ -78,12 +80,16 @@ func getLoggerWriterCreateFunc(name string) LoggerWriterCreateFunc{
 	return w
 }
 
+// formatter 这个事情貌似不是很合理
+type LoggerFormatterFunc func(msg *LoggerMsg, colorful bool) string
+
 type Logger struct {
 	async  bool
 	level  int
 	prefix string
 
-	buff    chan *LoggerMsg
+	buff          chan *LoggerMsg
+	formatterFunc LoggerFormatterFunc
 }
 
 const defaultBuffSize = 100
@@ -100,23 +106,27 @@ func NewLogger(prefix, level string, async bool) *Logger {
 
 var msgPool *sync.Pool
 
-func (l *Logger) allocMsg() *LoggerMsg {
+func allocMsg() *LoggerMsg {
 	v := msgPool.Get()
 	msg, _ := v.(*LoggerMsg)
 	msg.Msg = ""
 	msg.Caller.Line = -1
 	msg.Caller.FileName = ""
 	msg.Prefix = ""
-
+	msg.formatter = nil
 	return msg
 }
 
-func (l *Logger) freeMsg(msg *LoggerMsg) {
+func freeMsg(msg *LoggerMsg) {
 	msgPool.Put(msg)
 }
 
 func (l *Logger) SetLevel(level int) {
 	l.level = level
+}
+
+func (l *Logger) SetFormatter(formatterFunc LoggerFormatterFunc) {
+	l.formatterFunc = formatterFunc
 }
 
 func (l *Logger) Debug(f string, v ...interface{}) {
@@ -155,21 +165,20 @@ func (l *Logger) Abort(f string, v ...interface{}) {
 }
 
 func (l *Logger) writeMsg(f string, v ...interface{}) {
-	rawMsg := fmt.Sprintf(f, v)
-	msg := l.allocMsg()
+	rawMsg := fmt.Sprintf(f, v...)
+	msg := allocMsg()
 
 	msg.Msg = rawMsg
 	msg.Prefix = l.prefix
 	msg.Time = time.Now()
 	msg.Level = l.level
-
+	msg.formatter = l.formatterFunc
 	_, file, line, _ := runtime.Caller(2)
 	msg.Caller.FileName = file
 	msg.Caller.Line = line
 
 	writeLogMsg(msg, l.async)
 }
-
 
 var loggers = struct {
 	mu            sync.Mutex
@@ -197,21 +206,26 @@ func writeTasks() {
 	flushTicker := time.NewTicker(time.Second)
 	for {
 		select {
-		case <- flushTicker.C:
+		case <-flushTicker.C:
 			for _, writer := range loggers.writers {
 				writer.Flush()
 			}
-		case <- loggers.flush:
+		case <-loggers.flush:
 			flush = true
 			continue
-		case msg := <- loggers.buffers:
+		case msg := <-loggers.buffers:
 			for _, writer := range loggers.writers {
+				if !writer.MatchPrefix(msg.Prefix) {
+					continue
+				}
+
 				writer.Write([]byte(msg.Format(writer.Colorful())))
 				if flush && len(loggers.buffers) == 0 {
 					writer.Flush()
 					flush = false
 				}
 			}
+			freeMsg(msg)
 		}
 	}
 }
@@ -237,7 +251,7 @@ func InitLogger(level string, opts ...LoggerOpts) error {
 
 	loggers.level = level
 	if len(opts) == 0 {
-		opts = append(opts, LoggerOpts{Type:LoggerConsole})
+		opts = append(opts, LoggerOpts{Type: LoggerConsole})
 	}
 	for _, opt := range opts {
 		createFunc := getLoggerWriterCreateFunc(opt.Type)
@@ -248,7 +262,7 @@ func InitLogger(level string, opts ...LoggerOpts) error {
 	return nil
 }
 
-func GetLogger(prefix... string) *Logger {
+func GetLogger(prefix ...string) *Logger {
 	loggers.mu.Lock()
 	defer loggers.mu.Unlock()
 

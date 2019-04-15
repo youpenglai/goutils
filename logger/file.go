@@ -14,10 +14,11 @@ import (
 type FileWriter struct {
 	mu       sync.Mutex
 	filename string
+	prefixs  []string
 
 	logStartTime time.Time
 	//logCurTime   time.Time
-	currentFile  int
+	//currentFile  int
 	rotate       int
 	maxSize      int64
 	maxLines     int
@@ -28,19 +29,20 @@ type FileWriter struct {
 }
 
 func (fw *FileWriter) openLogFile() error {
-	exists, err := pathtool.FileExists(fw.filename)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		os.MkdirAll(filepath.Dir(fw.filename), os.ModeDir)
-	}
+	err := os.MkdirAll(filepath.Dir(fw.filename), os.ModeDir)
+	// TODO: err process
 
 	fw.file, err = os.OpenFile(fw.filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, os.ModePerm)
+	t, _ := getFileCreatedTime(fw.filename)
+	if fw.rotate == LogRotateDaily {
+		fw.logStartTime = t.Truncate(24 * time.Hour)
+	} else if fw.rotate == LogRotateHour {
+		fw.logStartTime = t.Truncate(time.Hour)
+	}
+
 	go func() {
 		// count lines
-		fi, _ := fw.file.Stat()
+		fi, _ := os.Stat(fw.filename)
 		fw.writeBytes = fi.Size()
 		buff := make([]byte, 32768)
 
@@ -90,7 +92,8 @@ func (fw *FileWriter) needRotate() bool {
 
 const (
 	dailyFmt = "2006-01-02"
-	hourFmt="2006010213"
+	hourFmt="20060102-15"
+	linesFormat = "20060102-1504"
 )
 
 func newFileName(oldName, additional string) string {
@@ -109,12 +112,7 @@ func (fw *FileWriter) getLogs() ([]string, error) {
 	})
 }
 
-func (fw *FileWriter) rotateDaily() error {
-	err := os.Rename(fw.filename, newFileName(fw.filename, time.Now().Format(dailyFmt)))
-	if err != nil {
-		return err
-	}
-
+func (fw *FileWriter) removeOldestLog() error {
 	if fw.maxFiles == 0 {
 		return nil
 	}
@@ -128,25 +126,33 @@ func (fw *FileWriter) rotateDaily() error {
 		return nil
 	}
 
-
 	var oldestFile string
 	oldestTime := time.Now()
 	for _, f := range logFiles {
-		s, e := os.Stat(f)
+		t, e := getFileCreatedTime(f)
 		if e != nil {
 			continue
 		}
-		if s.ModTime().Before(oldestTime) {
+		if t.Before(oldestTime) {
 			oldestFile = f
 		}
 	}
+
 	if len(oldestFile) == 0 {
 		return nil
 	}
 
 	os.Remove(oldestFile)
+	return nil
+}
 
-	return err
+func (fw *FileWriter) rotateDaily() error {
+	err := os.Rename(fw.filename, newFileName(fw.filename, time.Now().Format(dailyFmt)))
+	if err != nil {
+		return err
+	}
+
+	return fw.removeOldestLog()
 }
 
 func (fw *FileWriter) rotateHour() error {
@@ -155,15 +161,18 @@ func (fw *FileWriter) rotateHour() error {
 		return err
 	}
 
-	if fw.maxFiles == 0 {
-		return nil
-	}
-
-	return nil
+	return fw.removeOldestLog()
 }
 
 func (fw *FileWriter) rotateLines() error {
+	// 为了方便处理，文件重命名依然使用时间戳，精确到分
+	// 序号还是难以处理的
+	err := os.Rename(fw.filename, newFileName(fw.filename, time.Now().Format(linesFormat)))
+	if err != nil {
+		return err
+	}
 
+	return fw.removeOldestLog()
 }
 
 func (fw *FileWriter) doRotate() error {
@@ -181,6 +190,20 @@ func (fw *FileWriter) doRotate() error {
 	}
 
 	return fw.openLogFile()
+}
+
+func (fw *FileWriter) MatchPrefix(prefix string) bool {
+	if len(fw.prefixs) == 0 {
+		return true
+	}
+
+	for _, p := range fw.prefixs {
+		if p == prefix {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (fw *FileWriter) Colorful() bool {
@@ -217,7 +240,18 @@ func NewFileWriter(opts LoggerOpts) LoggerWriter {
 		filename: opts.FileName,
 		maxSize:  opts.MaxSize,
 		maxLines: opts.MaxLines,
+		prefixs: opts.Prefixs,
 	}
+
+	// 如果按行数，设置时最小不小于1000，如果小于1000，默认为1000000行
+	if fw.rotate == LogRotateLines && fw.maxLines < 1000 {
+		fw.maxLines = 1000000
+	}
+
+	if err := fw.openLogFile(); err != nil {
+		panic(err)
+	}
+
 	return fw
 }
 

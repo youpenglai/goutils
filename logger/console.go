@@ -31,6 +31,10 @@ func NewConsoleWriter(opts LoggerOpts) LoggerWriter {
 	}
 }
 
+func (cw *ConsoleWriter) MatchPrefix(prefix string) bool {
+	return true
+}
+
 func (cw *ConsoleWriter) Colorful() bool {
 	return true
 }

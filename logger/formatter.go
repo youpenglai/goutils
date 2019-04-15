@@ -17,6 +17,7 @@ type LoggerMsg struct {
 		Line int
 	}
 	Msg string
+	formatter LoggerFormatterFunc
 }
 
 type LoggerFormatter interface {
@@ -41,6 +42,13 @@ func levelColor(level int) string {
 }
 
 func (lmsg *LoggerMsg) Format(colorful bool) string {
+	if lmsg.formatter != nil {
+		return lmsg.formatter(lmsg, colorful)
+	}
+	return lmsg.format(colorful)
+}
+
+func (lmsg *LoggerMsg) format(colorful bool) string {
 	prefix := strings.ToUpper(lmsg.Prefix)
 	level := levelPrefix[lmsg.Level]
 	timeString := lmsg.Time.Format(TimeFormatter)
