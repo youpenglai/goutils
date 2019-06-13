@@ -29,23 +29,17 @@ func Test_dir(t *testing.T) {
 	}
 	t.Logf("file exists: %v", b)
 
-	pathList, err := GetDirs("/home/embiid/go/src/github.com/youpenglai/goutils/pathtool")
+	dirList, err := GetDirFiles("/home/embiid/go/src/github.com/youpenglai/goutils/pathtool")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("pathList: %v", pathList)
+	t.Logf("dirList: %v", dirList)
 
-	pathList, err = GetFiles("/home/embiid/go/src/github.com/youpenglai/goutils/pathtool")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("pathList: %v", pathList)
-
-	pathList, err = GetFilesForSuffixs("/home/embiid/go/src/github.com/youpenglai/goutils/pathtool",
+	dirList, err = GetDirFilesForSuffixs("/home/embiid/go/src/github.com/youpenglai/goutils/pathtool",
 		[]string{".go", ".cpp"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("pathList: %v", pathList)
+	t.Logf("dirList: %v", dirList)
 
 }

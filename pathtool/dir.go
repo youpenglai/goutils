@@ -78,6 +78,7 @@ func GetDirFiles(dirPath string) (dirList []string, err error) {
 	if err != nil {
 		return
 	}
+
 	for _, file := range files {
 		if file.IsDir() {
 			fmt.Println(filepath.Join(dirPath, file.Name()))
@@ -102,6 +103,7 @@ func WalkGetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []stri
 	if err != nil {
 		return
 	}
+
 	for _, file := range files {
 		if file.IsDir() {
 			dirSubList, e := WalkGetDirFilesForSuffixs(filepath.Join(dirPath, file.Name()), suffixs)
@@ -110,6 +112,7 @@ func WalkGetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []stri
 				return
 			}
 			dirList = append(dirList, dirSubList...)
+
 		} else {
 			var flag = false
 			for _, suffix := range suffixs {
