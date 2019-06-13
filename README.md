@@ -27,3 +27,4 @@ Utils directorys
 | 随机数据 | [rand](randtool/) | 获取随机数、uuid |
 | 系统信息 | [system](systool/system.go) | 获取系统信息 |
 | token | [token](tokentool/jwt.go) | 安全认证 |
+| 参数效验 | [valid](validation/) | 参数效验 |
