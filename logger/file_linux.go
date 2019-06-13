@@ -1,5 +1,12 @@
 package logger
 
+import (
+	"time"
+	"os"
+	"syscall"
+	"errors"
+)
+
 func getFileCreatedTime(f string) (t time.Time, err error) {
 	var fi os.FileInfo
 	if fi, err = os.Stat(f); err != nil {
