@@ -33,25 +33,18 @@ func FileExists(path string) (bool, error) {
 	return true, nil
 }
 
-// 获取文件夹下所有文件夹(递归)
-func GetDirs(dirPath string) (pathList []string, err error) {
-	err = filepath.Walk(dirPath,
-		func(path string, f os.FileInfo, err error) error {
-			if f.IsDir() {
-				pathList = append(pathList, path)
-			}
-			return nil
-		},
-	)
-	return
-}
-
+type FilterFunc func(filename string) bool
+func dummy(str string) bool {return true}
 // 获取文件夹下所有文件（递归、无文件夹）
-func GetFiles(dirPath string) (pathList []string, err error) {
+func GetDirFiles(dirPath string, filter ...FilterFunc) (dirList []string, err error) {
+	filterFunc := dummy
+	if len(filter) >= 0 && filter[0] != nil{
+		filterFunc = filter[0]
+	}
 	err = filepath.Walk(dirPath,
 		func(path string, f os.FileInfo, err error) error {
-			if !f.IsDir() {
-				pathList = append(pathList, path)
+			if !f.IsDir() && filterFunc(path){
+				dirList = append(dirList, path)
 			}
 			return nil
 		},
@@ -60,7 +53,7 @@ func GetFiles(dirPath string) (pathList []string, err error) {
 }
 
 // 获取文件夹下符合后缀名的所有文件（递归、无文件夹）
-func GetFilesForSuffixs(dirPath string, suffixs []string) (pathList []string, err error) {
+func GetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, err error) {
 	err = filepath.Walk(dirPath,
 		func(path string, f os.FileInfo, err error) error {
 			var flag = false
@@ -69,7 +62,7 @@ func GetFilesForSuffixs(dirPath string, suffixs []string) (pathList []string, er
 			}
 
 			if !f.IsDir() && (flag) {
-				pathList = append(pathList, path)
+				dirList = append(dirList, path)
 			}
 
 			return nil
@@ -80,12 +73,11 @@ func GetFilesForSuffixs(dirPath string, suffixs []string) (pathList []string, er
 
 /*
 // 获取文件夹下所有文件（递归、无文件夹）
-func GetFiles(dirPath string) (dirList []string, err error) {
+func GetDirFiles(dirPath string) (dirList []string, err error) {
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
 		return
 	}
-
 	for _, file := range files {
 		if file.IsDir() {
 			fmt.Println(filepath.Join(dirPath, file.Name()))
@@ -105,12 +97,11 @@ func GetFiles(dirPath string) (dirList []string, err error) {
 
 /*
 // 获取文件夹下符合后缀名的所有文件（递归、无文件夹）
-func GetFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, err error) {
+func WalkGetDirFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, err error) {
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
 		return
 	}
-
 	for _, file := range files {
 		if file.IsDir() {
 			dirSubList, e := WalkGetDirFilesForSuffixs(filepath.Join(dirPath, file.Name()), suffixs)
@@ -119,7 +110,6 @@ func GetFilesForSuffixs(dirPath string, suffixs []string) (dirList []string, err
 				return
 			}
 			dirList = append(dirList, dirSubList...)
-
 		} else {
 			var flag = false
 			for _, suffix := range suffixs {
