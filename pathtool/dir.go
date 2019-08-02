@@ -33,17 +33,31 @@ func FileExists(path string) (bool, error) {
 	return true, nil
 }
 
+func GetDirs(dirPath string) (dirList []string, err error) {
+	err = filepath.Walk(dirPath,
+		func(path string, f os.FileInfo, err error) error {
+			if f.IsDir() && f.Name() != dirPath {
+				dirList = append(dirList, path)
+			}
+			return nil
+		},
+	)
+	return
+}
+
 type FilterFunc func(filename string) bool
-func dummy(str string) bool {return true}
+
+func dummy(str string) bool { return true }
+
 // 获取文件夹下所有文件（递归、无文件夹）
 func GetDirFiles(dirPath string, filter ...FilterFunc) (dirList []string, err error) {
 	filterFunc := dummy
-	if len(filter) >= 0 && filter[0] != nil{
+	if len(filter) >= 0 && filter[0] != nil {
 		filterFunc = filter[0]
 	}
 	err = filepath.Walk(dirPath,
 		func(path string, f os.FileInfo, err error) error {
-			if !f.IsDir() && filterFunc(path){
+			if !f.IsDir() && filterFunc(path) {
 				dirList = append(dirList, path)
 			}
 			return nil
