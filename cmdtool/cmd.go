@@ -2,7 +2,6 @@ package cmdtool
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"os/exec"
 	"runtime"
@@ -15,16 +14,9 @@ func Cmd(cmdString string) (result string, err error) {
 	case "windows":
 		cmd = exec.Command("cmd")
 	case "linux":
-		cmd = exec.Command("/bin/bash")
+		cmd = exec.Command("/bin/bash", "-c", cmdString)
 	default:
 		err = errors.New("OS only support LINUX and WINDOWS")
-		return
-	}
-
-	var stdin bytes.Buffer
-	cmd.Stdin = &stdin
-
-	if _, err = stdin.WriteString(cmdString); err != nil {
 		return
 	}
 
