@@ -1,6 +1,7 @@
 package cmdtool
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"os/exec"
@@ -16,26 +17,36 @@ func Cmd(cmdString string) (result string, err error) {
 	case "linux":
 		cmd = exec.Command("/bin/bash")
 	default:
-		return "", errors.New("OS only support LINUX and WINDOWS")
+		err = errors.New("OS only support LINUX and WINDOWS")
+		return
 	}
 
-	var in, out bytes.Buffer
-	cmd.Stdin, cmd.Stdout = &in, &out
-	_, err = in.WriteString(cmdString)
+	var stdin bytes.Buffer
+	cmd.Stdin = &stdin
+
+	if _, err = stdin.WriteString(cmdString); err != nil {
+		return
+	}
+
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return
 	}
 
-	err = cmd.Start()
-	if err != nil {
+	if err = cmd.Start(); err != nil {
 		return
 	}
 
-	err = cmd.Wait()
-	if err != nil {
+	scanner := bufio.NewScanner(stdout)
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		result += scanner.Text() + "\n"
+	}
+
+	if err = cmd.Wait(); err != nil {
 		return
 	}
 
-	result = out.String()
 	return
 }
